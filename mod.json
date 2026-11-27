@@ -1,0 +1,9 @@
+{
+  "id": "IndustryMaster",
+  "displayName": "产业统合控制",
+  "author": "lqq061993-create",
+  "version": "1.0",
+  "description": "调整税率、产量和贸易。支持虚空运货、企业收入、虚空岗位，以及一键安排空置建筑入驻并补发零收入企业收入。1.0 修复虚空收入未计入建筑面板盈利的问题。适配游戏 1.6.4f1。",
+  "isCodeMod": true,
+  "dependencies": []
+}

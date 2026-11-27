@@ -1,0 +1,18 @@
+# Build output
+dist/
+build/bin/
+build/obj/
+bin/
+obj/
+
+# Local game binaries are referenced, never copied in
+*.dll
+!lib/0Harmony.dll
+
+# Editor / OS noise
+.vs/
+.idea/
+*.user
+*.suo
+Thumbs.db
+.DS_Store
