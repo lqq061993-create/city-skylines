@@ -43,6 +43,15 @@ const SYSTEM = [
 
 const run = (cmd, args) => execFileSync(cmd, args, { encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 });
 
+const tryRun = (cmd, args) => {
+  try {
+    return run(cmd, args).trim();
+  } catch (error) {
+    console.warn('命令失败（已容错）：' + cmd + ' ' + args.join(' ') + ' -> ' + error.message);
+    return '';
+  }
+};
+
 const api = async (path, init = {}) => {
   const res = await fetch(API + path, {
     ...init,
@@ -59,16 +68,20 @@ const api = async (path, init = {}) => {
 };
 
 const event = JSON.parse(readFileSync(process.env.GITHUB_EVENT_PATH, 'utf8'));
-const HEAD = event.after || (event.pull_request && event.pull_request.head.sha) || '';
+const HEAD = event.after || (event.pull_request && event.pull_request.head.sha) || run('git', ['rev-parse', 'HEAD']).trim();
+const EMPTY_TREE = '4b825dc642cb6eb9a060e54bf8d69288fbee4904';
 
 function changedDiff() {
   const paths = ['*.cs', '*.mjs', '*.json', '*.md', '*.yml', '*.sh', '*.ps1'];
   if (event.pull_request) {
     return run('git', ['diff', '--unified=3', '--no-color', event.pull_request.base.sha, event.pull_request.head.sha, '--', ...paths]);
   }
-  if (!event.after) return run('git', ['diff', '--unified=3', '--no-color', 'HEAD~1', 'HEAD', '--', ...paths]);
-  const before = event.before && !/^0+$/.test(event.before) ? event.before : event.after + '~1';
-  return run('git', ['diff', '--unified=3', '--no-color', before, event.after, '--', ...paths]);
+  if (event.after) {
+    const before = event.before && !/^0+$/.test(event.before) ? event.before : event.after + '~1';
+    return run('git', ['diff', '--unified=3', '--no-color', before, event.after, '--', ...paths]);
+  }
+  const parent = tryRun('git', ['rev-parse', '--verify', '--quiet', 'HEAD~1']) || EMPTY_TREE;
+  return run('git', ['diff', '--unified=3', '--no-color', parent, 'HEAD', '--', ...paths]);
 }
 
 const jsonOrNull = (raw) => {
