@@ -225,8 +225,8 @@ CHANGELOG.md              版本记录
   评论（不会每次刷一条新的）。
 - **模型来源**：仓库 secret `REVIEW_API_KEY` + 变量 `REVIEW_API_BASE`、`REVIEW_MODEL`、
   `REVIEW_API_FORMAT`（`openai` 走 `/chat/completions`，`anthropic` 走 `/v1/messages`）。
-  未配置或调用失败时回退到 Actions 自带的 `GITHUB_TOKEN` 调 GitHub Models 免费额度，并在评论
-  顶部注明本次用的是哪条链路。
+  换供应商只需 `gh secret set REVIEW_API_KEY` 和改这三个变量，不动代码。没配 key 或模型不可达时
+  job 只记一行日志并退出 0（PR 上会留一条"本次未审查"的说明），不让审查故障把提交流程卡红。
 - **版本一致性**（另一个 job）：校验 `mod.json` 的 `version`、`IndustryMaster.mjs` 头部的
   `Version:`、`source/Mod.cs` 的 `AssemblyVersion` 三者一致，不一致直接失败。
 - **CI 不编译**：`Cities2_Data\Managed` 的游戏程序集不可分发，编译验证只能在本机跑

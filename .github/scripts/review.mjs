@@ -4,9 +4,9 @@
  * 由 .github/workflows/code-review.yml 调用：读本次改动的 diff，交给模型审查，
  * 结果回贴到 PR（PR 触发）或汇总 issue（push 到 main 触发）。
  *
- * 模型来源（按优先级）：
- *   1. 仓库 secret REVIEW_API_KEY + 变量 REVIEW_API_BASE / REVIEW_MODEL（自带 key，任意 OpenAI 兼容端点或 Anthropic）
- *   2. 未配置 key 时回退到 Actions 自带的 GITHUB_TOKEN 调 GitHub Models 免费额度
+ * 模型来源：仓库 secret REVIEW_API_KEY + 变量 REVIEW_API_BASE / REVIEW_MODEL
+ * （任意 OpenAI 兼容端点，或 REVIEW_API_FORMAT=anthropic 走 Anthropic 协议）。
+ * 没配 key 或模型不可达时只记一行日志并跳过，不让 CI 变红——审查是辅助，不该阻塞提交。
  */
 import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
@@ -20,8 +20,6 @@ const REPO = process.env.GITHUB_REPOSITORY;
 const API = 'https://api.github.com';
 const MARKER = '<!-- industry-master-auto-review -->';
 const MAX_DIFF = 60000;
-const GH_MODELS = 'https://models.github.ai/inference/chat/completions';
-const GH_MODEL_CANDIDATES = ['openai/gpt-4o-mini', 'openai/gpt-4.1-mini'];
 
 const SYSTEM = [
   '你是《城市：天际线 II》模组 IndustryMaster 的代码审查者。只看本次 diff，不臆测未改动的代码。',
@@ -119,33 +117,6 @@ async function callAnthropic(userContent) {
   return { text, label: MODEL };
 }
 
-async function callGitHubModels(userContent) {
-  let lastError = '';
-  for (const model of GH_MODEL_CANDIDATES) {
-    let raw = '';
-    try {
-      const res = await fetch(GH_MODELS, {
-        method: 'POST',
-        headers: { Authorization: 'Bearer ' + GH_TOKEN, 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          model,
-          temperature: 0.2,
-          max_tokens: 1500,
-          messages: [{ role: 'system', content: SYSTEM }, { role: 'user', content: userContent }],
-        }),
-      });
-      raw = await res.text();
-      const text = res.ok ? completionText(jsonOrNull(raw)) : null;
-      if (text) return { text, label: model + ' (GitHub Models)' };
-      lastError = model + ': HTTP ' + res.status + ' ' + brief(raw);
-    } catch (error) {
-      lastError = model + ': 请求失败 ' + brief(raw || error.message);
-    }
-    console.warn('模型不可用，换下一个：' + lastError);
-  }
-  throw new Error('所有候选模型都失败：' + lastError);
-}
-
 async function publish(markdown, label) {
   const footer = '\n\n---\n<sub>由 GitHub Actions 自动生成（' + label + '），仅供参考。CI 无法编译本模组（游戏程序集不可分发）。</sub>\n' + MARKER;
   if (event.pull_request) {
@@ -187,20 +158,22 @@ if (!diff.trim()) {
 } else {
   const clipped = diff.length > MAX_DIFF ? diff.slice(0, MAX_DIFF) + '\n[diff 已截断，共 ' + diff.length + ' 字符]' : diff;
   const userContent = '仓库：' + REPO + '\n提交：' + HEAD + '\n\n---- DIFF ----\n' + clipped;
-  let result = null;
-  let note = '';
-  if (KEY && BASE && MODEL) {
-    console.log('使用自带 API：' + BASE + ' / ' + MODEL + ' (' + FORMAT + ')');
-    try {
-      result = FORMAT === 'anthropic' ? await callAnthropic(userContent) : await callOpenAICompatible(userContent);
-    } catch (error) {
-      console.warn('自带 API 调用失败，回退到 GitHub Models：' + error.message);
-      note = '> 配置的审查 API 本次不可用，以下结果来自 GitHub Models 免费额度。原错误：' + String(error.message).slice(0, 240) + '\n\n';
-    }
-  } else {
-    console.log('未配置 REVIEW_API_KEY，回退到 GitHub Models 免费额度。');
+  if (!(KEY && BASE && MODEL)) {
+    console.log('未配置 REVIEW_API_KEY / REVIEW_API_BASE / REVIEW_MODEL，本次跳过审查。');
+    process.exit(0);
   }
-  if (!result) result = await callGitHubModels(userContent);
-  await publish(note + result.text, result.label);
+  console.log('使用 API：' + BASE + ' / ' + MODEL + ' (' + FORMAT + ')');
+  let result = null;
+  try {
+    result = FORMAT === 'anthropic' ? await callAnthropic(userContent) : await callOpenAICompatible(userContent);
+  } catch (error) {
+    const reason = String(error.message).slice(0, 400);
+    console.warn('审查模型不可用，本次跳过：' + reason);
+    if (event.pull_request) {
+      await publish('### ⚠️ 本次自动审查未执行\n\n审查模型不可用，这份改动没有经过审查。\n\n```\n' + reason + '\n```', '模型不可用');
+    }
+    process.exit(0);
+  }
+  await publish(result.text, result.label);
   console.log('\n' + result.text);
 }
