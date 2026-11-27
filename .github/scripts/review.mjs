@@ -66,6 +66,7 @@ function changedDiff() {
   if (event.pull_request) {
     return run('git', ['diff', '--unified=3', '--no-color', event.pull_request.base.sha, event.pull_request.head.sha, '--', ...paths]);
   }
+  if (!event.after) return run('git', ['diff', '--unified=3', '--no-color', 'HEAD~1', 'HEAD', '--', ...paths]);
   const before = event.before && !/^0+$/.test(event.before) ? event.before : event.after + '~1';
   return run('git', ['diff', '--unified=3', '--no-color', before, event.after, '--', ...paths]);
 }
