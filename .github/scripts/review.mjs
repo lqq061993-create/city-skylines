@@ -28,7 +28,7 @@ const SYSTEM = [
   '1. 金钱累加必须走 DirectTradePolicy.AddSaturated(int,int)，禁止裸加减。',
   '2. Harmony 补丁在 Install 里必须先校验元数据（方法存在、字段/枚举类型匹配），不匹配抛 MissingMemberException，由 Mod.cs 的 try/catch 捕获后降级，不能让模组整体失效。',
   '3. 反射得到的枚举下标（如 CompanySection.ResultType.Profit）必须运行时解析并做边界检查，不得硬编码。',
-  '4. 用户可见文本必须通过 Mod.Text(中文, English) 提供中英双语。',
+  '4. 用户可见文本必须通过 Mod.Text(中文, English) 提供中英双语；例外：mod.json 的 displayName/description 由模组管理器静态读取，运行时拿不到 Mod.Text，只能写字面量（可中英并列），不得据此报问题。',
   '5. 修改游戏 ECS 数据必须考虑 NativeArray / ComponentData 生命周期与 System 执行顺序。',
   '6. 本仓库无法在 CI 编译（游戏程序集不能分发），不要报"可能编译不过"这类无法验证的猜测；只报逻辑、绑定假设、空引用、溢出、单位换算、设置项是否真正接入等问题。',
   '',

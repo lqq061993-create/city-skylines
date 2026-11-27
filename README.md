@@ -237,6 +237,9 @@ CHANGELOG.md              版本记录
 `MissingMemberException` 由 `Mod.cs` 降级、反射枚举下标不得硬编码、用户可见文本必须
 `Mod.Text(中文, English)` 双语等）。要调教审查重点，改那段提示词即可。
 
+> 例外：`mod.json` 的 `displayName` / `description` 由模组管理器静态读取，运行时拿不到
+> `Mod.Text`，只能写字面量（本仓库写成中英并列），提示词里已注明不据此报问题。
+
 ## 9. 许可与致谢
 
 - 本仓库源码未附带开源许可协议，版权归仓库所有者。
