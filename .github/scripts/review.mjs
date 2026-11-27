@@ -84,6 +84,20 @@ function changedDiff() {
   return run('git', ['diff', '--unified=3', '--no-color', parent, 'HEAD', '--', ...paths]);
 }
 
+async function fetchWithRetry(url, init, attempts = 3) {
+  let lastError;
+  for (let i = 1; i <= attempts; i++) {
+    try {
+      return await fetch(url, init);
+    } catch (error) {
+      lastError = error;
+      console.warn('请求失败（第 ' + i + '/' + attempts + ' 次）：' + error.message);
+      if (i < attempts) await new Promise((resolve) => setTimeout(resolve, 2000 * i));
+    }
+  }
+  throw lastError;
+}
+
 const jsonOrNull = (raw) => {
   try {
     return JSON.parse(raw);
@@ -100,7 +114,7 @@ function completionText(body) {
 }
 
 async function callOpenAICompatible(userContent) {
-  const res = await fetch(BASE + '/chat/completions', {
+  const res = await fetchWithRetry(BASE + '/chat/completions', {
     method: 'POST',
     headers: { Authorization: 'Bearer ' + KEY, 'Content-Type': 'application/json' },
     body: JSON.stringify({
@@ -118,7 +132,7 @@ async function callOpenAICompatible(userContent) {
 }
 
 async function callAnthropic(userContent) {
-  const res = await fetch(BASE + '/v1/messages', {
+  const res = await fetchWithRetry(BASE + '/v1/messages', {
     method: 'POST',
     headers: { 'x-api-key': KEY, 'anthropic-version': '2023-06-01', 'Content-Type': 'application/json' },
     body: JSON.stringify({ model: MODEL, max_tokens: 1800, system: SYSTEM, messages: [{ role: 'user', content: userContent }] }),
