@@ -1,0 +1,23 @@
+Auto Transit Planner 0.3.0
+==========================
+
+Install: this folder must contain AutoTransitPlanner.dll and mod.json.
+
+In Options > Mods > Auto Transit Planner:
+
+  Repair existing bus lines with broken paths
+      Edits broken passenger bus routes in place. A repair can omit an unreachable
+      waypoint, and when that is not enough it can drop both ends of the failed leg.
+      The edit is applied only after the game has found a path for every leg,
+      including the return leg.
+
+  Plan and build bus stops and lines now
+      Creates new routes. Planned loops never enter a dead-end street or a one-way
+      pocket, and never turn the bus around on the same road.
+
+Both actions try several waypoint combinations before giving up. The result is shown
+in the summary and written to Logs\AutoTransitPlanner.log.
+
+0.3.0 fixes: dead-end and one-way-pocket nodes, stops and detours are pruned from
+planning; loops are checked so the bus never has to make a U-turn; repairs can drop
+the stop pair across an unreachable leg instead of only omitting waypoints.

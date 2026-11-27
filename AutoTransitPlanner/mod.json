@@ -1,0 +1,9 @@
+{
+  "id": "AutoTransitPlanner",
+  "displayName": "Auto Transit Planner",
+  "author": "lqq061993-create",
+  "version": "0.3.0",
+  "description": "Plans and builds passenger bus stops and lines from city demand. 0.3.0 keeps planned loops off dead ends and one-way pockets, forbids U-turns inside a planned loop, and repairs broken existing lines by dropping unreachable stops instead of only omitting waypoints.",
+  "isCodeMod": true,
+  "dependencies": []
+}
