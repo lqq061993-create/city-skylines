@@ -227,7 +227,11 @@ namespace IndustryMaster
             var stock = em.GetBuffer<Resources>(settlement.Company);
             EconomyUtils.AddResources(settlement.Resource, signedAmount, stock);
             if (payment > 0)
-                EconomyUtils.AddResources(Resource.Money, importing ? -payment : payment, stock);
+            {
+                int change = importing ? -payment : payment;
+                int before = EconomyUtils.GetResources(Resource.Money, stock);
+                EconomyUtils.AddResources(Resource.Money, DirectTradePolicy.AddSaturated(before, change) - before, stock);
+            }
 
             if (importing)
             {

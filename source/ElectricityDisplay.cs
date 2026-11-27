@@ -45,17 +45,31 @@ namespace IndustryMaster
             if (_productionBinding != null) return;
             var ui = _world.GetExistingSystemManaged<ElectricityInfoviewUISystem>();
             if (ui == null) return;
-            _productionBinding = typeof(ElectricityInfoviewUISystem).GetField("m_ElectricityProduction", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(ui);
-            _availabilityBinding = typeof(ElectricityInfoviewUISystem).GetField("m_ElectricityAvailability", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(ui);
-            if (_productionBinding == null || _availabilityBinding == null) throw new InvalidOperationException("Power UI bindings unavailable");
-            _writerField = typeof(GetterValueBinding<int>).GetField("m_Writer", BindingFlags.Instance | BindingFlags.NonPublic);
-            _getterField = typeof(GetterValueBinding<IndicatorValue>).GetField("m_Getter", BindingFlags.Instance | BindingFlags.NonPublic);
-            _oldWriter = _writerField.GetValue(_productionBinding); _oldGetter = _getterField.GetValue(_availabilityBinding);
-            _writerField.SetValue(_productionBinding, new LongPowerWriter(this));
-            _getterField.SetValue(_availabilityBinding, (Func<IndicatorValue>)(() => IndicatorValue.Calculate((float)TotalRaw,
+            // Everything is resolved into locals first; nothing is assigned to this instance until
+            // every member and type has been validated, so a changed UI layout can be retried later.
+            var productionField = typeof(ElectricityInfoviewUISystem).GetField("m_ElectricityProduction", BindingFlags.Instance | BindingFlags.NonPublic);
+            var availabilityField = typeof(ElectricityInfoviewUISystem).GetField("m_ElectricityAvailability", BindingFlags.Instance | BindingFlags.NonPublic);
+            var writerField = typeof(GetterValueBinding<int>).GetField("m_Writer", BindingFlags.Instance | BindingFlags.NonPublic);
+            var getterField = typeof(GetterValueBinding<IndicatorValue>).GetField("m_Getter", BindingFlags.Instance | BindingFlags.NonPublic);
+            if (productionField == null || availabilityField == null || writerField == null || getterField == null)
+                throw new MissingMemberException("Power UI binding members changed");
+            var productionBinding = productionField.GetValue(ui);
+            var availabilityBinding = availabilityField.GetValue(ui);
+            if (!(productionBinding is GetterValueBinding<int>) || !(availabilityBinding is GetterValueBinding<IndicatorValue>))
+                throw new MissingMemberException("Power UI binding types changed");
+
+            object oldWriter = writerField.GetValue(productionBinding);
+            object oldGetter = getterField.GetValue(availabilityBinding);
+            writerField.SetValue(productionBinding, new LongPowerWriter(this));
+            getterField.SetValue(availabilityBinding, (Func<IndicatorValue>)(() => IndicatorValue.Calculate((float)TotalRaw,
                 _world.GetExistingSystemManaged<ElectricityStatisticsSystem>().consumption)));
+
+            _writerField = writerField; _getterField = getterField;
+            _oldWriter = oldWriter; _oldGetter = oldGetter;
+            _availabilityBinding = availabilityBinding;
+            _productionBinding = productionBinding;
             Update();
-            ((GetterValueBinding<int>)_productionBinding).TriggerUpdate();
+            ((GetterValueBinding<int>)productionBinding).TriggerUpdate();
         }
         public void Dispose()
         {

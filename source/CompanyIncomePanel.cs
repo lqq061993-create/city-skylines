@@ -18,24 +18,29 @@ namespace IndustryMaster
 
         internal static void Install(Harmony harmony)
         {
+            // Both patches are validated before either is applied, so a changed game build leaves
+            // the panel untouched instead of half-patched.
             var writer = AccessTools.DeclaredMethod(typeof(CompanySection), nameof(CompanySection.OnWriteProperties),
                 new[] { typeof(IJsonWriter) });
-            if (writer == null || AccessTools.Field(typeof(CompanySection), "companyEntity")?.FieldType != typeof(Entity))
-                throw new MissingMemberException("Company panel binding changed");
-
-            harmony.Patch(writer, postfix: new HarmonyMethod(typeof(CompanyIncomePanel), nameof(WriteReceipt)));
-
-            // QueryCompanyData fills m_Results from CompanyStatisticData, whose m_Profit is
-            // CompanyEconomyStatisticSystem's estimate (produced goods minus costs) and therefore
-            // ignores income that was paid straight into the company account.
             var query = AccessTools.DeclaredMethod(typeof(CompanySection), "QueryCompanyData", new[] { typeof(Entity) });
             int profitIndex = ProfitIndex();
+            if (writer == null || AccessTools.Field(typeof(CompanySection), "companyEntity")?.FieldType != typeof(Entity))
+                throw new MissingMemberException("Company panel binding changed");
             if (query == null || AccessTools.Field(typeof(CompanySection), "m_Results")?.FieldType != typeof(NativeArray<int>)
                 || profitIndex < 0)
                 throw new MissingMemberException("Company panel profit binding changed");
 
+            harmony.Patch(writer, postfix: new HarmonyMethod(typeof(CompanyIncomePanel), nameof(WriteReceipt)));
+            try
+            {
+                harmony.Patch(query, postfix: new HarmonyMethod(typeof(CompanyIncomePanel), nameof(AddVirtualIncomeToProfit)));
+            }
+            catch
+            {
+                harmony.Unpatch(writer, HarmonyPatchType.Postfix, harmony.Id);
+                throw;
+            }
             _profitIndex = profitIndex;
-            harmony.Patch(query, postfix: new HarmonyMethod(typeof(CompanyIncomePanel), nameof(AddVirtualIncomeToProfit)));
         }
 
         private static int ProfitIndex()
