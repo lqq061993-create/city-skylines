@@ -16,3 +16,7 @@ obj/
 *.suo
 Thumbs.db
 .DS_Store
+
+# CI scratch
+*.log
+ev.tmp.json
