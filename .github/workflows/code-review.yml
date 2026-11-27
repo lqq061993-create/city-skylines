@@ -1,0 +1,55 @@
+name: 自动代码审查
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: read
+  models: read
+  issues: write
+  pull-requests: write
+
+concurrency:
+  group: review-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  version-guard:
+    name: 版本一致性
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: 校验 mod.json / .mjs / AssemblyVersion 版本号一致
+        run: |
+          set -euo pipefail
+          mod=$(node -p "require('./mod.json').version")
+          ui=$(sed -n 's/^ \* Version: \(.*\)$/\1/p' IndustryMaster.mjs | head -1 | tr -d ' \r')
+          asm=$(sed -n 's/.*AssemblyVersion("\([0-9.]*\)").*/\1/p' source/Mod.cs | head -1)
+          major=$(echo "$asm" | cut -d. -f1-2)
+          echo "mod.json=$mod  mjs=$ui  AssemblyVersion=$asm"
+          [ "$mod" = "$ui" ] || { echo "::error file=IndustryMaster.mjs::头部 Version 为 $ui，与 mod.json 的 $mod 不一致"; exit 1; }
+          [ "$mod" = "$major" ] || { echo "::error file=source/Mod.cs::AssemblyVersion 为 $asm，与 mod.json 的 $mod 不一致"; exit 1; }
+          echo "版本号一致"
+
+  review:
+    name: 模型审查
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: 审查改动并回贴
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REVIEW_API_KEY: ${{ secrets.REVIEW_API_KEY }}
+          REVIEW_API_BASE: ${{ vars.REVIEW_API_BASE }}
+          REVIEW_MODEL: ${{ vars.REVIEW_MODEL }}
+          REVIEW_API_FORMAT: ${{ vars.REVIEW_API_FORMAT }}
+        run: node .github/scripts/review.mjs

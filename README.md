@@ -211,10 +211,33 @@ source/                   C# 源码（20 个文件）
 lib/0Harmony.dll          Harmony 运行时（随包分发）
 lib/Harmony-LICENSE.txt   Harmony 的 MIT 许可
 build/build.sh, build.ps1 构建脚本
+.github/workflows/code-review.yml   自动审查 + 版本一致性校验
+.github/scripts/review.mjs          审查脚本（含审查规则 SYSTEM 提示词）
 CHANGELOG.md              版本记录
 ```
 
-## 8. 许可与致谢
+## 8. 自动代码审查
+
+`.github/workflows/code-review.yml` 在 **push 到 main** 或 **开 PR** 时自动跑：
+
+- **模型审查**：取本次改动的 diff（`*.cs` / `*.mjs` / `*.json` / `*.md` / 脚本，限 6 万字符），
+  交给模型审。PR 触发就贴成 PR 评论；push 触发则更新 issue「自动代码审查记录」里那一条机器人
+  评论（不会每次刷一条新的）。
+- **模型来源**：仓库 secret `REVIEW_API_KEY` + 变量 `REVIEW_API_BASE`、`REVIEW_MODEL`、
+  `REVIEW_API_FORMAT`（`openai` 走 `/chat/completions`，`anthropic` 走 `/v1/messages`）。
+  未配置或调用失败时回退到 Actions 自带的 `GITHUB_TOKEN` 调 GitHub Models 免费额度，并在评论
+  顶部注明本次用的是哪条链路。
+- **版本一致性**（另一个 job）：校验 `mod.json` 的 `version`、`IndustryMaster.mjs` 头部的
+  `Version:`、`source/Mod.cs` 的 `AssemblyVersion` 三者一致，不一致直接失败。
+- **CI 不编译**：`Cities2_Data\Managed` 的游戏程序集不可分发，编译验证只能在本机跑
+  `build/build.sh` 或 `build/build.ps1`，所以审查提示词明确要求不报"可能编译不过"这类臆测。
+
+审查口径写在 `.github/scripts/review.mjs` 的 `SYSTEM` 常量里（金钱必须走
+`DirectTradePolicy.AddSaturated`、Harmony 补丁必须校验元数据并在失败时抛
+`MissingMemberException` 由 `Mod.cs` 降级、反射枚举下标不得硬编码、用户可见文本必须
+`Mod.Text(中文, English)` 双语等）。要调教审查重点，改那段提示词即可。
+
+## 9. 许可与致谢
 
 - 本仓库源码未附带开源许可协议，版权归仓库所有者。
 - 内置的 **Harmony**（`lib/0Harmony.dll`）由 Andreas Pardeike 开发，遵循 MIT 许可，
