@@ -72,6 +72,21 @@ function changedDiff() {
   return run('git', ['diff', '--unified=3', '--no-color', before, event.after, '--', ...paths]);
 }
 
+const jsonOrNull = (raw) => {
+  try {
+    return JSON.parse(raw);
+  } catch {
+    return null;
+  }
+};
+
+const brief = (raw) => String(raw).replace(/\s+/g, ' ').trim().slice(0, 200);
+
+function completionText(body) {
+  const content = body && body.choices && body.choices[0] && body.choices[0].message && body.choices[0].message.content;
+  return typeof content === 'string' && content.trim() ? content.trim() : null;
+}
+
 async function callOpenAICompatible(userContent) {
   const res = await fetch(BASE + '/chat/completions', {
     method: 'POST',
@@ -83,9 +98,11 @@ async function callOpenAICompatible(userContent) {
       messages: [{ role: 'system', content: SYSTEM }, { role: 'user', content: userContent }],
     }),
   });
-  if (!res.ok) throw new Error(MODEL + ': ' + res.status + ' ' + (await res.text()).slice(0, 300));
-  const body = await res.json();
-  return { text: body.choices[0].message.content.trim(), label: MODEL };
+  const raw = await res.text();
+  if (!res.ok) throw new Error(MODEL + ': HTTP ' + res.status + ' ' + brief(raw));
+  const text = completionText(jsonOrNull(raw));
+  if (!text) throw new Error(MODEL + ': 响应不是预期的 chat completion -> ' + brief(raw));
+  return { text, label: MODEL };
 }
 
 async function callAnthropic(userContent) {
@@ -94,29 +111,36 @@ async function callAnthropic(userContent) {
     headers: { 'x-api-key': KEY, 'anthropic-version': '2023-06-01', 'Content-Type': 'application/json' },
     body: JSON.stringify({ model: MODEL, max_tokens: 1800, system: SYSTEM, messages: [{ role: 'user', content: userContent }] }),
   });
-  if (!res.ok) throw new Error(MODEL + ': ' + res.status + ' ' + (await res.text()).slice(0, 300));
-  const body = await res.json();
-  return { text: body.content.map((part) => part.text || '').join('').trim(), label: MODEL };
+  const raw = await res.text();
+  if (!res.ok) throw new Error(MODEL + ': HTTP ' + res.status + ' ' + brief(raw));
+  const body = jsonOrNull(raw);
+  const text = body && Array.isArray(body.content) ? body.content.map((part) => part.text || '').join('').trim() : '';
+  if (!text) throw new Error(MODEL + ': 响应不是预期的 messages 结构 -> ' + brief(raw));
+  return { text, label: MODEL };
 }
 
 async function callGitHubModels(userContent) {
   let lastError = '';
   for (const model of GH_MODEL_CANDIDATES) {
-    const res = await fetch(GH_MODELS, {
-      method: 'POST',
-      headers: { Authorization: 'Bearer ' + GH_TOKEN, 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        model,
-        temperature: 0.2,
-        max_tokens: 1500,
-        messages: [{ role: 'system', content: SYSTEM }, { role: 'user', content: userContent }],
-      }),
-    });
-    if (res.ok) {
-      const body = await res.json();
-      return { text: body.choices[0].message.content.trim(), label: model + ' (GitHub Models)' };
+    let raw = '';
+    try {
+      const res = await fetch(GH_MODELS, {
+        method: 'POST',
+        headers: { Authorization: 'Bearer ' + GH_TOKEN, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          model,
+          temperature: 0.2,
+          max_tokens: 1500,
+          messages: [{ role: 'system', content: SYSTEM }, { role: 'user', content: userContent }],
+        }),
+      });
+      raw = await res.text();
+      const text = res.ok ? completionText(jsonOrNull(raw)) : null;
+      if (text) return { text, label: model + ' (GitHub Models)' };
+      lastError = model + ': HTTP ' + res.status + ' ' + brief(raw);
+    } catch (error) {
+      lastError = model + ': 请求失败 ' + brief(raw || error.message);
     }
-    lastError = model + ': ' + res.status + ' ' + (await res.text()).slice(0, 200);
     console.warn('模型不可用，换下一个：' + lastError);
   }
   throw new Error('所有候选模型都失败：' + lastError);
