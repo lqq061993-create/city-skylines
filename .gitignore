@@ -1,13 +1,13 @@
 # Build output
-dist/
-build/bin/
-build/obj/
 bin/
 obj/
+dist/
 
 # Local game binaries are referenced, never copied in
 *.dll
-!lib/0Harmony.dll
+
+# Test artifacts
+TestResults/
 
 # Editor / OS noise
 .vs/
