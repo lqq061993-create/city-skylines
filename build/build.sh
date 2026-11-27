@@ -34,5 +34,5 @@ rsp="$root/build/obj/IndustryMaster.rsp"
 
 dotnet exec "$csc" "@$(wfile "$rsp")"
 
-cp "$root/mod.json" "$root/IndustryMaster.mjs" "$root/lib/0Harmony.dll" "$out/"
+cp "$root/mod.json" "$root/IndustryMaster.mjs" "$root/lib/0Harmony.dll" "$root/lib/Harmony-LICENSE.txt" "$out/"
 echo "Built: $out/IndustryMaster.dll"

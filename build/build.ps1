@@ -33,5 +33,5 @@ $lines += Get-ChildItem (Join-Path $root "source") -Filter *.cs | ForEach-Object
 dotnet exec $csc.FullName "@$rsp"
 if ($LASTEXITCODE -ne 0) { throw "Compilation failed with exit code $LASTEXITCODE" }
 
-Copy-Item (Join-Path $root "mod.json"), (Join-Path $root "IndustryMaster.mjs"), (Join-Path $root "lib\0Harmony.dll") $out -Force
+Copy-Item (Join-Path $root "mod.json"), (Join-Path $root "IndustryMaster.mjs"), (Join-Path $root "lib\0Harmony.dll"), (Join-Path $root "lib\Harmony-LICENSE.txt") $out -Force
 Write-Host "Built: $out\IndustryMaster.dll"
